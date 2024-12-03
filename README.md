@@ -1,14 +1,16 @@
-# BirdsoundID
+# Bird Sound Classifier using Custom CNN
 
-This repository contains code to build and train a custom Convolutional Neural Network (CNN) that identifies bird sounds. The model uses recordings from the Xeno-Canto database, focusing on a user-specified list of species. The repository also includes tools for preprocessing audio files and evaluating the model's performance.
+This repository contains code to build, train, and use a custom Convolutional Neural Network (CNN) for identifying bird species from audio recordings. The system processes recordings from the Xeno-Canto database, trains on spectrograms of bird sounds, and can analyze new audio files to classify species.
+
+---
 
 ## Features
 
 - Fetch bird sound recordings from the Xeno-Canto database.
 - Preprocess audio files into spectrograms suitable for CNN input.
-- Train a CNN model using Keras to classify bird sounds.
-- Validate and test the model's accuracy on unseen data.
-- Visualize confusion matrices and spectrograms.
+- Train a CNN model to classify bird sounds.
+- Use the trained model to analyze query audio files for bird species identification.
+- Generate detailed outputs including classifications, timestamps, and visualizations.
 
 ---
 
@@ -36,53 +38,82 @@ This repository contains code to build and train a custom Convolutional Neural N
 
 ## Usage
 
-### 1. Fetching Audio Data
-- The script retrieves recordings for target species and background noise species from the Xeno-Canto database.
-- It balances the number of recordings per species to ensure model fairness.
+### 1. **Training the Model**
+This part involves preprocessing audio data, building a CNN model, and training it.
 
-### 2. Preprocessing
-- Audio files are converted into spectrograms.
-- Data is stratified into training (80%), validation (10%), and testing (10%) sets.
+#### Preprocessing:
+- Fetch and balance bird sound recordings for target and background species.
+- Convert audio files into spectrograms and stratify data into training, validation, and testing sets.
 
-### 3. Training the CNN
-- The CNN model has multiple convolutional, pooling, and dropout layers for robust feature extraction.
-- The model uses categorical crossentropy as the loss function and Adam optimizer.
-
-### 4. Evaluation
-- The script evaluates the model's performance on validation and test datasets.
-- Outputs include accuracy metrics and confusion matrices.
-
----
-
-## Example Workflow
-
-1. **Preprocess Audio Files**:
-    - Run the preprocessing script to fetch, balance, and encode audio files into spectrograms.
+#### Training:
+- Use the following code to train the CNN:
     ```r
-    source("funs.R")
-    ```
+    source("funs.R") # Load utility functions
 
-2. **Train the Model**:
-    - Build and train the CNN model on preprocessed data.
-    ```r
+    # Train the model
     history <- fit(model, x = train$X, y = train$Y,
                    batch_size = 16, epochs = 15,
                    validation_data = list(val$X, val$Y))
     ```
 
-3. **Evaluate the Model**:
-    - Assess the model using confusion matrices and accuracy metrics on test data.
+#### Evaluation:
+- Validate the model and test its accuracy on unseen data.
+
+### 2. **Using the Model**
+Once trained, the model can be used to classify bird species from a query audio file.
+
+#### Step-by-step Instructions:
+
+1. **Prepare the Query Audio File**:
+    - Split the audio into overlapping windows of specified size and stride.
     ```r
-    mean(predXClass == trueXClass) # Test accuracy
+    query = "path/to/your/query_audio.mp3"
+    windsiz = 10 # Window size in seconds
+    strid = 5    # Stride length in seconds
+    queryX <- audioProcess(files = query, limit = (query_dur - windsiz), ws = windsiz, stride = strid)
+    ```
+
+2. **Load the Model and Predict**:
+    - Load the trained CNN and classify species in each time window.
+    ```r
+    model <- load_model_tf(filepath = "path/to/your/saved_model")
+    predXquery <- predict(model, queryX)
+    ```
+
+3. **Output Results**:
+    - Create a detailed table of predictions, including timestamps, species IDs, and classification accuracy.
+    - Filter results by accuracy and visualize them using a pie chart and spectrogram.
+    ```r
+    # Create summary table
+    queryTable <- data.frame(cbind(timestamp, predXClass, as.numeric(accuracy)))
+    queryTable <- filter(queryTable, accuracy >= 0.9 & ID != "no class")
+
+    # Generate pie chart
+    ggplot(queryTable, aes(x="", y=n, fill=ID)) +
+      geom_bar(stat="identity", width=1, color="white") +
+      coord_polar("y", start=0) +
+      labs(title = "Pie chart of detected species") +
+      theme_void()
+
+    # Spectrogram visualization
+    image(queryX[33,,,],
+          xlab = "Time (s)",
+          ylab = "Frequency (kHz)",
+          axes = F)
     ```
 
 ---
 
-## Results
+## Example Workflow
 
-- **Validation Accuracy**: 85%
-- **Test Accuracy**: 87%
-- Visualization of confusion matrices for validation and test sets is included in the code.
+1. **Train the Model**:
+    - Preprocess audio and train the CNN as described above.
+
+2. **Test a Query Audio File**:
+    - Use the code provided in the "Using the Model" section to predict bird species in a new audio file.
+
+3. **Visualize Results**:
+    - Generate visualizations like pie charts of detected species and spectrograms of audio segments.
 
 ---
 
@@ -90,14 +121,7 @@ This repository contains code to build and train a custom Convolutional Neural N
 
 - [Xeno-Canto API](https://www.xeno-canto.org/)
 - R (≥ 4.0.0)
-- Keras and TensorFlow backend
-
----
-
-## Notes
-
-- Background noise data can be augmented by including additional files (e.g., chatter, machine noise).
-- Ensure a stable internet connection for downloading recordings from Xeno-Canto.
+- Keras with TensorFlow backend
 
 ---
 
